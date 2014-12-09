@@ -1,0 +1,28 @@
+require 'geocoder'
+ 
+if ARGV.count > 0
+    input = ARGV
+else
+    input = ARGF
+    input.set_encoding("utf-8") # required to handle non-ASCII characters in Automator action
+end
+output = ""
+ 
+input.each do |address|
+    trimmed_address = address.strip
+    
+    if trimmed_address.empty?
+        output += "\n"
+        next
+    end
+    
+    geocode_result = Geocoder.search(trimmed_address)
+    if geocode_result.first
+        coordinates = geocode_result.first.coordinates.join(", ")
+    else
+        coordinates = "Not found"
+    end
+    output += "#{coordinates}\n"
+end
+ 
+puts output
