@@ -1,0 +1,127 @@
+#!/usr/bin/env ruby
+
+############
+##
+## Script to create virtual domains and users for postfix 'ISP' like server
+## server is loosely setup following:
+## https://workaround.org/ispmail/wheezy
+##
+############
+
+require 'mysql'
+require 'optparse'
+require 'docopt'
+require 'pp'
+require 'mysql'
+
+doc = <<DOCOPT
+create.rb
+
+Usage:
+  create.rb (-d <domain> | -u <user>)
+  create.rb (--domain <domain> | --user <user>)
+  create.rb -f | --file <filename>
+  create.rb -h | --help
+
+Options:
+  -d --domain   Create Virtual domain.
+  -u --user     Create Virtual user. Domain must exist.
+  -f --file     Create Virtual users from a file. syntax user@domain
+  -h --help     Show this screen.
+
+DOCOPT
+
+
+options = {}
+begin
+  options = Docopt::docopt(doc)
+  pp Docopt::docopt(doc)
+rescue Docopt::Exit => e
+  puts e.message
+  exit 1
+end
+
+#####MYSQL conn variables
+myHost = '127.0.0.1'
+myUser = 'someusername'
+myPass = 'somepassword'
+myDB = 'databasename'
+
+#####MYSQL 
+if options["--list-domains"]
+begin
+	con = Mysql.new myHost, myUser, myPass, myDB
+	#puts con.get_server_info
+	rs = con.query 'SELECT * FROM virtual_domains'
+	n_rows = rs.num_rows
+
+	n_rows.times do 
+		puts rs.fetch_row.join("\s")
+	end
+    
+rescue Mysql::Error => e
+	puts e.errno
+	puts e.error
+    
+ensure
+	con.close if con
+end
+
+  exit 0
+end
+if options["--domain"]
+begin
+	con = Mysql.new myHost, myUser, myPass, myDB
+	pst = con.prepare 'INSERT IGNORE INTO virtual_domains(name, description, created) VALUES(?, ?, NOW())'
+	pst.execute options["<domain>"], "Virtual Domain for #{options['<domain>']}"
+rescue Mysql::Error => e
+	puts e.errno
+	puts e.error
+ensure
+	con.close if con
+	pst.close if pst
+end
+
+  exit 0
+end
+
+if options["--user"]
+mydomain = options["<user>"].split("@").last
+puts mydomain
+begin
+	con = Mysql.new myHost, myUser, myPass, myDB
+	#pst = con.prepare 'INSERT IGNORE INTO virtual_users(domain_id, password, email, created) VALUES(?, ?, ?, NOW())'
+	pst = con.prepare 'INSERT IGNORE INTO virtual_users(domain_id, password, email, created) SELECT id, MD5(?), ?, NOW() FROM virtual_domains WHERE name = ?'
+	pst.execute "w2gi1234", options["<user>"], mydomain
+rescue Mysql::Error => e
+	puts e.errno
+	puts e.error
+ensure
+	con.close if con
+	pst.close if pst
+end
+
+  exit 0
+end
+
+if options["--file"]
+  File.open(options["<filename>"], "r") do |f|
+    f.each_line do |line|
+      mydomain = line.split("@").last
+begin
+        con = Mysql.new myHost, myUser, myPass, myDB
+        pst = con.prepare 'INSERT INTO virtual_users(domain_id, password, email, created) SELECT id, MD5(?), ?, NOW() FROM virtual_domains WHERE name = ?'
+      puts pst
+      #puts line
+      pst.execute "w2gi1234", line, mydomain
+rescue Mysql::Error => e
+        puts e.errno
+        puts e.error
+ensure
+        con.close if con
+        pst.close if pst
+end
+end
+end
+end
+
