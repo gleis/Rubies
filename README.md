@@ -1,3 +1,5 @@
+# OLD and no longer maintained
+
 # Rubies
 
 A small collection of standalone Ruby scripts for networking, geocoding, key generation, host inspection, and MySQL-backed mail account provisioning.
